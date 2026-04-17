@@ -13,5 +13,5 @@ if r and m:
     st.success("Your Order is successfully submited! ")
     st.balloons()
 else:
-  st.info("Don't worry, your details are protected with google. )
+  st.info("Don't worry, your details are protected with google. ")
 
