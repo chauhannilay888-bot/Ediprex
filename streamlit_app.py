@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 st.info("Something coming soon with a very cool concept. Stay tuned! 😉")
 conn = st.connection("gsheets", type=GSheetsConnection)
