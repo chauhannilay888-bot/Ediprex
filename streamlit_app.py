@@ -7,6 +7,7 @@ welcome_html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta name="google-site-verification" content="zINnwjOarj-lAgHmEFrOPaihJvA5iwrmzhapCKGuqj0" />
   <style>
     body {
       background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
