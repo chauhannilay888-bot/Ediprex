@@ -6,7 +6,7 @@ existing = conn.read(worksheet="Sheet1", ttl=0)
 r = st.text_input("Enter your phone/whatsapp number")
 m = st.text_area("Describe the edit you want to make in detail")
 if r and m:
-  if st.button("Submit):
+  if st.button("Submit"):
     new_row = pd.DataFrame([{"Phone": int(r), "ORDER": m.strip()}])
     updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
     conn.update(worksheet="Sheet1", data=updated) 
