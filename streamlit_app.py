@@ -264,6 +264,7 @@ if r and m:
         updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
         conn.update(worksheet="Sheet1", data=updated) 
         st.success("Your Order has been successfully submitted!")
+        st.info("Your Edit will soon be delivered in 24 - 28 hrs via your number. ")
         st.balloons()
 else:
     st.info("Don't worry, your details are protected with Google.")
