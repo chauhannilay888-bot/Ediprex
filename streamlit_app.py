@@ -4,10 +4,10 @@ from streamlit_gsheets import GSheetsConnection
 
 # ---------------- 2. PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Ediprex - Give Order For Making Impressive Edits For FREE!",
-    page_icon="sZ6eW.jpg",
-    layout="wide",
-    initial_sidebar_state="expanded"
+  page_title="Ediprex - Give Order For Making Impressive Edits For FREE!",
+  page_icon="sZ6eW.jpg",
+  layout="wide",
+  initial_sidebar_state="expanded"
 )
 
 # --- Custom HTML welcome banner ---
