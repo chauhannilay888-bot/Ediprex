@@ -8,21 +8,25 @@ welcome_html = """
 <html lang="en">
 <head>
   <meta name="google-site-verification" content="zINnwjOarj-lAgHmEFrOPaihJvA5iwrmzhapCKGuqj0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 30vh;
+      min-height: 100vh; /* Full height for all devices */
       margin: 0;
       font-family: 'Poppins', sans-serif;
+      text-align: center;
+      padding: 1rem;
     }
+
     h1 {
-      font-size: 3rem;
+      font-size: clamp(2rem, 5vw, 4rem); /* Flexible font size */
       color: #fff;
       text-transform: uppercase;
-      letter-spacing: 3px;
+      letter-spacing: 0.2em;
       position: relative;
       animation: float 3s ease-in-out infinite;
       text-shadow:
@@ -34,10 +38,27 @@ welcome_html = """
         6px 6px 0 #777,
         7px 7px 0 #666,
         8px 8px 15px rgba(0,0,0,0.6);
+      word-wrap: break-word;
     }
+
     @keyframes float {
       0%, 100% { transform: translateY(0) rotateX(0deg); }
       50% { transform: translateY(-10px) rotateX(5deg); }
+    }
+
+    /* Media queries for extra fine-tuning */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: clamp(1.5rem, 6vw, 3rem);
+        letter-spacing: 0.1em;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: clamp(1.2rem, 8vw, 2.5rem);
+        letter-spacing: 0.05em;
+      }
     }
   </style>
 </head>
