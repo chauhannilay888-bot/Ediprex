@@ -259,30 +259,32 @@ else:
     
     # --- Order form ---
     st.subheader("Place Your Order")
+    try:
+        # Country code selectbox
+        c = st.selectbox("Select your country", options=list(country_codes.keys()))
+        selected_code = country_codes[c]
     
-    # Country code selectbox
-    c = st.selectbox("Select your country", options=list(country_codes.keys()))
-    selected_code = country_codes[c]
+        # Phone number input
+        r = st.text_input("Enter your phone/WhatsApp number (without country code)")
     
-    # Phone number input
-    r = st.text_input("Enter your phone/WhatsApp number (without country code)")
+        # Order description
+        m = st.text_area("Describe the edit you want to make in detail")
     
-    # Order description
-    m = st.text_area("Describe the edit you want to make in detail")
-    
-    # --- Submit ---
-    if r and m:
-        if st.button("Submit"):
-            new_row = pd.DataFrame([{
-                "C_c": selected_code,   # store selected country code
-                "Phone": int(r),        # store phone number
-                "ORDER": m.strip()      # store order description
-            }])
-            updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
-            conn.update(worksheet="Sheet1", data=updated) 
-            st.success("Your Order has been successfully submitted!")
-            st.info("Your Edit will soon be delivered in 24 - 28 hrs via your number. ")
-            st.balloons()
-    else:
-        st.info("Don't worry, your details are protected with Google.")
+        # --- Submit ---
+        if r and m:
+            if st.button("Submit"):
+                new_row = pd.DataFrame([{
+                    "C_c": selected_code,   # store selected country code
+                    "Phone": int(r),        # store phone number
+                    "ORDER": m.strip()      # store order description
+                }])
+                updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
+                conn.update(worksheet="Sheet1", data=updated) 
+                st.success("Your Order has been successfully submitted!")
+                st.info("Your Edit will soon be delivered in 24 - 28 hrs via your number. ")
+                st.balloons()
+        else:
+            st.info("Don't worry, your details are protected with Google.")
+    except ValueError:
+        st.error("Number should be in integer formet)
     
