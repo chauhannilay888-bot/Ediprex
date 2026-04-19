@@ -286,5 +286,5 @@ else:
         else:
             st.info("Don't worry, your details are protected with Google.")
     except ValueError:
-        st.error("Number should be in integer formet)
+        st.error("Number should be in integer formet")
     
