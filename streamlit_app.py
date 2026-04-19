@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 from streamlit_gsheets import GSheetsConnection
 
 # ---------------- 2. PAGE CONFIG ----------------
