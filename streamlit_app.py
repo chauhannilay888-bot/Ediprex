@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from streamlit_gsheets import GSheetsConnection
+from PIL import Image
 
 # ---------------- 2. PAGE CONFIG ----------------
 st.set_page_config(
