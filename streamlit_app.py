@@ -245,10 +245,9 @@ if option == "Check Samples":
     if not files:
         st.warning("No MP4 files found.")
     else:
-        for i in range(0, len(files), 3):
-            for col, f in zip(st.columns(3), files[i:i+3]):
-                col.video(Image.open(f"SAMPLES/{f}"), caption=f, use_column_width=True)
-
+        for i in range(0, len(files)):
+          st.video(i)
+      
 else:
     # --- Google Sheets connection ---
     conn = st.connection("gsheets", type=GSheetsConnection)
