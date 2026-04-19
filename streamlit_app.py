@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image
 from streamlit_gsheets import GSheetsConnection
 
 # ---------------- 2. PAGE CONFIG ----------------
@@ -247,7 +246,7 @@ if option == "Check Samples":
     else:
         for i in range(0, len(files), 3):
             for col, f in zip(st.columns(3), files[i:i+3]):
-                col.image(Image.open(f"SAMPLES/{f}"), caption=f, use_column_width=True)
+                col.video(Image.open(f"SAMPLES/{f}"), caption=f, use_column_width=True)
 
 else:
     # --- Google Sheets connection ---
