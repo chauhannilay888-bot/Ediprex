@@ -247,7 +247,7 @@ if option == "Check Samples":
     else:
         for i in range(0, len(files), 3):
             for col, f in zip(st.columns(3), files[i:i+3]):
-                col.image(Image.open(f"tutorial_PNGs/{f}"), caption=f, use_column_width=True)
+                col.image(Image.open(f"SAMPLES/{f}"), caption=f, use_column_width=True)
 
 else:
     # --- Google Sheets connection ---
