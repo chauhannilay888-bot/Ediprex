@@ -236,35 +236,48 @@ country_codes = {
     "Zimbabwe": "+263"
 }
 
-# --- Google Sheets connection ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-existing = conn.read(worksheet="Sheet1", ttl=0)
+option = st.radio("Select an option", options=["Place Order", "Check Samples"])
+if option == "Check Samples":
+    st.subheader("Take a look at some of our previous edits!")
+    files = sorted([f for f in os.listdir("SAMPLES") if f.lower().endswith(".mp4")], key=lambda x: os.path.getmtime(os.path.join("SAMPLES", x)), reverse=True)[:9]
+    if not files:
+        st.warning("No MP4 files found.")
+    else:
+        for i in range(0, len(files), 3):
+            for col, f in zip(st.columns(3), files[i:i+3]):
+                col.image(Image.open(f"tutorial_PNGs/{f}"), caption=f, use_column_width=True)
 
-# --- Order form ---
-st.subheader("Place Your Order")
-
-# Country code selectbox
-c = st.selectbox("Select your country", options=list(country_codes.keys()))
-selected_code = country_codes[c]
-
-# Phone number input
-r = st.text_input("Enter your phone/WhatsApp number (without country code)")
-
-# Order description
-m = st.text_area("Describe the edit you want to make in detail")
-
-# --- Submit ---
-if r and m:
-    if st.button("Submit"):
-        new_row = pd.DataFrame([{
-            "C_c": selected_code,   # store selected country code
-            "Phone": int(r),        # store phone number
-            "ORDER": m.strip()      # store order description
-        }])
-        updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
-        conn.update(worksheet="Sheet1", data=updated) 
-        st.success("Your Order has been successfully submitted!")
-        st.info("Your Edit will soon be delivered in 24 - 28 hrs via your number. ")
-        st.balloons()
 else:
-    st.info("Don't worry, your details are protected with Google.")
+    # --- Google Sheets connection ---
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    existing = conn.read(worksheet="Sheet1", ttl=0)
+    
+    # --- Order form ---
+    st.subheader("Place Your Order")
+    
+    # Country code selectbox
+    c = st.selectbox("Select your country", options=list(country_codes.keys()))
+    selected_code = country_codes[c]
+    
+    # Phone number input
+    r = st.text_input("Enter your phone/WhatsApp number (without country code)")
+    
+    # Order description
+    m = st.text_area("Describe the edit you want to make in detail")
+    
+    # --- Submit ---
+    if r and m:
+        if st.button("Submit"):
+            new_row = pd.DataFrame([{
+                "C_c": selected_code,   # store selected country code
+                "Phone": int(r),        # store phone number
+                "ORDER": m.strip()      # store order description
+            }])
+            updated = pd.concat([existing, new_row], ignore_index=True).dropna(how='all')
+            conn.update(worksheet="Sheet1", data=updated) 
+            st.success("Your Order has been successfully submitted!")
+            st.info("Your Edit will soon be delivered in 24 - 28 hrs via your number. ")
+            st.balloons()
+    else:
+        st.info("Don't worry, your details are protected with Google.")
+    
