@@ -241,12 +241,16 @@ country_codes = {
 option = st.radio("Select an option", options=["Place Order", "Check Samples"])
 if option == "Check Samples":
     st.subheader("Take a look at some of our previous edits!")
-    files = sorted([f for f in os.listdir("SAMPLES") if f.lower().endswith(".mp4")], key=lambda x: os.path.getmtime(os.path.join("SAMPLES", x)), reverse=True)[:9]
-    if not files:
-        st.warning("No MP4 files found.")
-    else:
-        for i in range(0, len(files)):
-          st.video(i)
+    folder_path = "SAMPLES"
+    video_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.mp4', '.mov', '.avi', '.mkv'))]
+    cols_per_row = 4
+    for i in range(0, len(video_files), cols_per_row):
+        cols = st.columns(cols_per_row)
+        for j, col in enumerate(cols):
+            if i + j < len(video_files):
+                video_path = os.path.join(folder_path, video_files[i + j])
+                with col:
+                    st.video(video_path)
       
 else:
     # --- Google Sheets connection ---
