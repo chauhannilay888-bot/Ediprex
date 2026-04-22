@@ -2,54 +2,36 @@ import streamlit as st
 import pandas as pd
 import os
 from streamlit_gsheets import GSheetsConnection
-from PIL import Image
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Ediprex - Give Order For Making Impressive Edits For FREE!",
+    page_title="Ediprex - Professional Video & Photo Edits",
     page_icon="sZ6eW.jpg",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ---------------- PREMIUM HERO SECTION ----------------
+# Hero Section
 st.markdown("""
 <style>
-    .hero {
-        background: linear-gradient(135deg, #0f172a, #1e2937);
-        padding: 70px 20px;
-        text-align: center;
-        border-radius: 20px;
-        margin-bottom: 30px;
-    }
-    .main-title {
-        font-size: clamp(2.8rem, 8vw, 5rem);
-        font-weight: 900;
-        background: linear-gradient(90deg, #4facfe, #00f2fe);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
-    }
-    .subtitle {
-        font-size: 1.35rem;
-        color: #cbd5e1;
-        max-width: 720px;
-        margin: 0 auto;
-    }
+    .hero { background: linear-gradient(135deg, #0f172a, #1e2937); padding: 70px 20px; 
+            text-align: center; border-radius: 20px; margin-bottom: 30px; }
+    .main-title { font-size: clamp(2.8rem, 8vw, 5rem); font-weight: 900; 
+                  background: linear-gradient(90deg, #4facfe, #00f2fe); 
+                  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { font-size: 1.35rem; color: #cbd5e1; max-width: 720px; margin: 0 auto; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="hero">
     <h1 class="main-title">EDIPREX</h1>
-    <p class="subtitle">
-        Professional Video & Photo Edits — Fast, Creative & Delivered in 24-48 Hours
-    </p>
+    <p class="subtitle">Professional Video & Photo Edits — Fast, Creative & Delivered in 24-48 Hours</p>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------------- FULL COUNTRY LIST WITH FLAGS ----------------
-country_codes = {
+country_list = {
     "🇮🇳 India": "+91",
     "🇺🇸 United States": "+1",
     "🇬🇧 United Kingdom": "+44",
@@ -71,7 +53,7 @@ country_codes = {
     "🇿🇦 South Africa": "+27",
     "🇹🇷 Turkey": "+90",
     "🇸🇦 Saudi Arabia": "+966",
-    "🇦🇪 United Arab Emirates": "+971",
+    "🇦🇪 UAE": "+971",
     "🇮🇷 Iran": "+98",
     "🇮🇩 Indonesia": "+62",
     "🇵🇭 Philippines": "+63",
@@ -169,11 +151,13 @@ country_codes = {
     "🇹🇯 Tajikistan": "+992",
     "🇹🇿 Tanzania": "+255",
     "🇹🇳 Tunisia": "+216",
+    "🇹🇷 Turkey": "+90",
     "🇺🇬 Uganda": "+256",
     "🇺🇦 Ukraine": "+380",
     "🇺🇾 Uruguay": "+598",
     "🇺🇿 Uzbekistan": "+998",
     "🇻🇪 Venezuela": "+58",
+    "🇻🇳 Vietnam": "+84",
     "🇾🇪 Yemen": "+967",
     "🇿🇲 Zambia": "+260",
     "🇿🇼 Zimbabwe": "+263"
@@ -212,15 +196,16 @@ else:  # Place Order
     except:
         existing = pd.DataFrame(columns=["C_c", "Phone", "ORDER"])
 
-    # Country with Flag
-    c = st.selectbox("🌍 Select your country", options=list(country_codes.keys()))
-    selected_code = country_codes[c]
+    # Country with Flag (Clean & Professional)
+    selected_country = st.selectbox("🌍 Select your country", 
+                                    options=list(country_list.keys()))
+    selected_code = country_list[selected_country]
     
     r = st.text_input("📱 Enter your WhatsApp / Phone number (without country code)", 
                       placeholder="9876543210")
 
     m = st.text_area("✍️ Describe the edit you want in detail", 
-                     placeholder="Example: Make a cinematic reel from my raw footage with smooth transitions, trending music, text overlays and end screen...",
+                     placeholder="Example: Make a cinematic reel from my raw footage with smooth transitions, trending music, text overlays...",
                      height=150)
 
     if st.button("🚀 Submit Order", type="primary", use_container_width=True):
