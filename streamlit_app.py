@@ -8,19 +8,28 @@ import io
 
 # ---------------- BRAHMASTRA SERVICE ACCOUNT CLEANER ----------------
 def get_google_services():
-    # Secrets se credentials uthana
+    import re
     creds_info = dict(st.secrets["connections"]["gsheets"])
     
-    # PEM Error Fix: \n aur hidden slashes ko force-clean karna
+    # --- ULTRA CLEANER START ---
     raw_key = creds_info["private_key"]
-    clean_key = raw_key.replace("\\n", "\n").replace("\\\\n", "\n").strip()
-    creds_info["private_key"] = clean_key
+    
+    # 1. Header aur Footer ko alag karo
+    header = "-----BEGIN PRIVATE KEY-----"
+    footer = "-----END PRIVATE KEY-----"
+    
+    # 2. Beech ka content nikalo aur saara kachra (@, ., spaces, \n) saaf karo
+    core_body = raw_key.replace(header, "").replace(footer, "")
+    # Sirf A-Z, a-z, 0-9, +, /, = ko rehne do (Base64 characters)
+    clean_body = re.sub(r'[^A-Za-z0-9\+/=]', '', core_body)
+    
+    # 3. Wapas jod do sahi formatting ke saath
+    formatted_key = f"{header}\n{clean_body}\n{footer}\n"
+    creds_info["private_key"] = formatted_key
+    # --- ULTRA CLEANER END ---
     
     creds = Credentials.from_service_account_info(creds_info)
-    
-    # Drive aur Sheets dono ke liye service return karna
-    drive = build('drive', 'v3', credentials=creds)
-    return drive
+    return build('drive', 'v3', credentials=creds)
 
 # ---------------- PAGE CONFIG & UI ----------------
 st.set_page_config(
