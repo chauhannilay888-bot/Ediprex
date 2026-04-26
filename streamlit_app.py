@@ -141,7 +141,7 @@ if "user_id" in st.session_state:
             selected_country = st.selectbox("🌍 Select your country", options=["🇮🇳 India (+91)", "🇺🇸 United States (+1)"])
             selected_code = selected_country.split()[-1]
 
-            r = st.text_input("📱 Enter your WhatsApp / Phone number (without country code)", placeholder="9876543210")
+            r = st.text_input("📱 Enter your WhatsApp / Phone number (without country code)", placeholder="8576876419")
             m = st.text_area("✍️ Describe the edit you want in detail", 
                              placeholder="Example: Make a cinematic reel from my raw footage with smooth transitions, trending music...",
                              height=150)
