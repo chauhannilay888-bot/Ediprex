@@ -39,25 +39,29 @@ except Exception as e:
 # ---------------- 3. AUTH & REGISTRATION ----------------
 if "user_id" not in st.session_state:
     st.markdown('<div class="header-text">🎬 EDIPREX</div>', unsafe_allow_html=True)
-    tab_log, tab_reg = st.tabs(["🔐 Login", "📝 Register"])
+    tab_log, tab_reg = st.tabs(["🔐 Secure Login", "📝 New Registration"])
     conn = st.connection("gsheets", type=GSheetsConnection)
 
     with tab_reg:
-        new_id = st.text_input("Choose Unique EDP ID").strip()
-        if st.button("Register"):
+        new_id = st.text_input("Create EDP ID").strip()
+        if st.button("Register & Create Workspace"):
             if new_id:
                 try:
                     logins = conn.read(spreadsheet="Ediprex_Logins", worksheet="Sheet1", ttl=0)
                     if new_id in logins["Random_EDP_ID"].astype(str).values:
-                        st.error("ID already taken!")
+                        st.error("ID taken!")
                     else:
-                        conn.update(spreadsheet="Ediprex_Logins", worksheet="Sheet1", data=pd.concat([logins, pd.DataFrame([{"Random_EDP_ID": new_id}])]))
-                        # Create Folder normally (Inheritance is the key)
+                        # GSheet update
+                        new_row = pd.DataFrame([{"Random_EDP_ID": new_id}])
+                        conn.update(spreadsheet="Ediprex_Logins", worksheet="Sheet1", data=pd.concat([logins, new_row]))
+                        
+                        # Folder Creation (Ab settings ki wajah se quota tera use hoga)
                         folder_meta = {"name": new_id, "mimeType": "application/vnd.google-apps.folder", "parents": [PARENT_FOLDER_ID]}
                         drive_service.files().create(body=folder_meta, supportsAllDrives=True).execute()
-                        st.success("Registration Successful!")
+                        
+                        st.success("Registration Successful! Please login.")
                         st.balloons()
-                except Exception as e: st.error(f"Reg Error: {e}")
+                except Exception as e: st.error(f"Reg Failed: {e}")
 
     with tab_log:
         uid = st.text_input("Enter EDP ID").strip()
@@ -74,20 +78,22 @@ else:
     if st.sidebar.button("Logout"): del st.session_state["user_id"]; st.rerun()
 
     with st.form("order_form", clear_on_submit=True):
+        st.header("🚀 New Project")
         phone = st.text_input("WhatsApp Number")
         raw_file = st.file_uploader("Upload Footage", type=['mp4', 'mov', 'zip', 'jpg', 'png'])
         desc = st.text_area("Instructions")
+        
         if st.form_submit_button("Submit"):
             if raw_file and phone and desc:
                 try:
-                    with st.spinner("Uploading..."):
+                    with st.spinner("Uploading to EDIPREX Cloud..."):
+                        # Find User Folder
                         q = f"name='{st.session_state['user_id']}' and mimeType='application/vnd.google-apps.folder' and '{PARENT_FOLDER_ID}' in parents"
                         res = drive_service.files().list(q=q, supportsAllDrives=True).execute()
                         f_id = res['files'][0]['id']
                         
+                        # Upload with Resumable strategy
                         media = MediaIoBaseUpload(io.BytesIO(raw_file.read()), mimetype=raw_file.type, resumable=True)
-                        # CRITICAL: We create the file inside the folder that you already own (the parent)
-                        # This forces the quota to be checked against the folder hierarchy you set up.
                         drive_service.files().create(
                             body={'name': raw_file.name, 'parents': [f_id]},
                             media_body=media,
@@ -95,10 +101,12 @@ else:
                             supportsAllDrives=True
                         ).execute()
                     
+                    # Log Order
                     conn_ord = st.connection("gsheets", type=GSheetsConnection)
                     orders = conn_ord.read(spreadsheet="Ediprex_Orders", worksheet="Sheet1", ttl=0)
-                    conn_ord.update(spreadsheet="Ediprex_Orders", worksheet="Sheet1", data=pd.concat([orders, pd.DataFrame([{"User_Id": st.session_state["user_id"], "Phone": phone, "ORDER": desc}])]))
-                    st.success("✅ Order Placed!")
+                    new_ord = pd.DataFrame([{"User_Id": st.session_state["user_id"], "Phone": phone, "ORDER": desc}])
+                    conn_ord.update(spreadsheet="Ediprex_Orders", worksheet="Sheet1", data=pd.concat([orders, new_ord]))
+                    
+                    st.success("✅ Order Submitted!")
                     st.balloons()
                 except Exception as e: st.error(f"Error: {e}")
-                    
