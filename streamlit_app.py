@@ -1,364 +1,172 @@
 import streamlit as st
-import streamlit.components.v1 as components
-import io
 import pandas as pd
-import plotly.express as px
-import os
-from PIL import Image
-import json
-import time
 from streamlit_gsheets import GSheetsConnection
-from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
 
-# --------- 1. GOOGLE ANALYTICS & CUSTOM CSS -----------
-ga_code = """
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FHN9KEP6KN"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-FHN9KEP6KN');
-</script>
-<meta name="google-site-verification" content="zINnwjOarj-lAgHmEFrOPaihJvA5iwrmzhapCKGuqj0" />
-<meta name="msvalidate.01" content="ADE771C3184D04E01C54AFC606C27AA1" />
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-  html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-  }
-  .stMetric {
-    background-color: #1e2130;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  }
-</style>
-"""
-components.html(ga_code, height=0)
+# ---------------- 1. BRAHMASTRA SERVICE CLEANER ----------------
+def get_google_services():
+    # Secrets se dict uthao aur PEM error ko hamesha ke liye khatam karo
+    s = st.secrets["connections"]["gsheets"]
+    creds_dict = {
+        "type": s["type"],
+        "project_id": s["project_id"],
+        "private_key_id": s["private_key_id"],
+        "private_key": s["private_key"].replace("\\n", "\n").strip(), # The Magic Fix
+        "client_email": s["client_email"],
+        "client_id": s["client_id"],
+        "auth_uri": s["auth_uri"],
+        "token_uri": s["token_uri"],
+        "auth_provider_x509_cert_url": s["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": s["client_x509_cert_url"]
+    }
+    creds = Credentials.from_service_account_info(creds_dict)
+    return build('drive', 'v3', credentials=creds)
 
-# ---------------- 2. PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Graphico Pro 🚀 | AI-Powered Data Tool",
-    page_icon="💎",
-    layout="wide"
-)
-px.defaults.template = "plotly_dark"
+# ---------------- 2. PREMIUM UI STYLING ----------------
+st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
 
-# ---------------- 3. DATA LOADING FUNCTION ----------------
-@st.cache_data
-def load_data(uploaded_file, ext):
-    try:
-        file_bytes = uploaded_file.getvalue()
-        if ext == "csv":
-            return pd.read_csv(io.BytesIO(file_bytes))
-        elif ext in ["xlsx", "xls"]:
-            return pd.read_excel(io.BytesIO(file_bytes), engine='openpyxl')
-        elif ext == "json":
-            return pd.read_json(io.BytesIO(file_bytes))
-    except Exception as e:
-        st.error(f"❌ File Load Error: {e}")
-        return None
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stButton>button {
+        width: 100%;
+        border-radius: 10px;
+        background-image: linear-gradient(to right, #FF4B4B, #FF8080);
+        color: white;
+        height: 3em;
+        font-weight: bold;
+        border: none;
+        transition: 0.3s;
+    }
+    .stButton>button:hover { transform: scale(1.02); }
+    .stTextInput>div>div>input { border-radius: 10px; }
+    .header-text {
+        font-size: 50px;
+        font-weight: 900;
+        color: #FF4B4B;
+        text-align: center;
+        margin-bottom: 5px;
+        letter-spacing: 2px;
+    }
+    .sub-text {
+        text-align: center;
+        color: #808495;
+        margin-bottom: 30px;
+        font-size: 18px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ---------------- 4. SIDEBAR NAVIGATION ----------------
-with st.sidebar:
-    st.markdown("<h1 style='text-align: center; color: #4facfe;'>💎 GRAPHICO PRO</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 0.8em;'>Empowering Your Data Journey</p>", unsafe_allow_html=True)
-    st.divider()
-
-    page = st.radio("✨ Navigation", 
-                    ["🏠 Home & Visualizer", "🔍 Raw Insights", "DS Hub", "📖 Samples"], 
-                    index=0)
-
-    uploaded_file = st.file_uploader("Upload Dataset (CSV, Excel, JSON)", 
-                                     type=["csv", "xlsx", "xls", "json"])
-
-    df = None
-    if uploaded_file:
-        ext = uploaded_file.name.split(".")[-1].lower()
-        df = load_data(uploaded_file, ext)
-        if df is not None:
-            st.success("✅ Dataset Loaded!")
-
-    # --------- ⭐ GOOGLE SHEETS REVIEW SYSTEM ----------
-    st.divider()
-    if "show_review" not in st.session_state:
-        st.session_state.show_review = False
-
-    st.caption("🚀 Review us to help Nilay unlock ML features!")
-
-    if st.button("⭐ Click here to Review Us!", use_container_width=True):
-        st.session_state.show_review = not st.session_state.show_review
-
-    if st.session_state.show_review:
-        with st.expander("📝 Help Nilay Improve", expanded=True):
-            st.markdown("<p style='font-size: 0.8em;'>Your feedback as a student developer's fuel! ⛽</p>", 
-                        unsafe_allow_html=True)
-            
-            rating = st.selectbox("Rate us", [5, 4, 3, 2, 1], key="rev_rating")
-            review_text = st.text_area("Your thoughts...", 
-                                       placeholder="What should I add next?", 
-                                       key="rev_text")
-            
-            if st.button("Submit", key="rev_submit"):
-                if not review_text.strip():
-                    st.warning("Please write a review to submit")
-                else:
-                    try:
-                        conn = st.connection("gsheets", type=GSheetsConnection)
-                        try:
-                            existing_data = conn.read(worksheet="Sheet1", ttl=0)
-                        except:
-                            existing_data = pd.DataFrame(columns=["rating", "review"])
-                        
-                        existing_data = existing_data.dropna(how='all')
-                        new_row = pd.DataFrame([{"rating": int(rating), "review": review_text.strip()}])
-                        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
-                        
-                        conn.update(worksheet="Sheet1", data=updated_df)
-                        st.cache_data.clear()
-                        
-                        st.success("✅ Saved! You're a legend!")
-                        st.balloons()
-                        st.session_state.show_review = False
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-
-    st.info("Developed with ❤️ by Nilay")
-
-# ---------------- 5. MAIN LOGIC ----------------
-if df is not None:
-    all_cols = df.columns.tolist()
-    num_cols = df.select_dtypes(include="number").columns.tolist()
-
-    st.toast("Enjoying the tool? Don't forget to leave a review in the sidebar! ⭐", icon="🚀")
-
-    if page == "🏠 Home & Visualizer":
-        st.markdown("""
-          <h2 style='color: #4facfe;'>📊 Professional Data Visualizer</h2>
-          <hr style='margin-top: 0; margin-bottom: 20px; border: 0; height: 1px; background-image: linear-gradient(to right, #4facfe, #00f2fe, transparent);'>
-          """, unsafe_allow_html=True)
-
-        m1, m2, m3 = st.columns(3)
-        m1.metric("📈 Rows", df.shape[0])
-        m2.metric("📋 Columns", df.shape[1])
-        m3.metric("⚠️ Missing Cells", int(df.isnull().sum().sum()))
-        st.divider()
-
-        st.sidebar.header("🎨 Graph Settings")
-        g_type = st.sidebar.selectbox("Chart Type", ["Auto Suggestion","Bar","Line","Scatter","Pie","Histogram","Box","Area","Heatmap"])
-        chart_title = st.sidebar.text_input("Chart Title", "My Analysis")
-
-        x_ax = st.sidebar.selectbox("X-Axis", all_cols)
-        y_ax = st.sidebar.selectbox("Y-Axis (Numeric)", num_cols) if num_cols else None
-
-        st.subheader("🔍 Filter Data")
-        f_col = st.selectbox("Select column to filter", all_cols)
-        u_vals = df[f_col].dropna().unique().tolist()
-        s_vals = st.multiselect("Select Values", u_vals, default=u_vals[:5] if len(u_vals)>5 else u_vals)
-        df_filtered = df[df[f_col].isin(s_vals)]
-
-        if g_type == "Auto Suggestion":
-            g_type = "Scatter" if len(num_cols) >= 2 else "Bar"
-            st.info(f"✨ Suggested: {g_type} Chart")
-
-        fig = None
-        try:
-            if g_type == "Heatmap":
-                corr = df_filtered.corr(numeric_only=True)
-                if not corr.empty:
-                    fig = px.imshow(corr, text_auto=True, title="Correlation Heatmap")
-            elif y_ax:
-                if g_type == "Bar": fig = px.bar(df_filtered, x=x_ax, y=y_ax, title=chart_title)
-                elif g_type == "Line": fig = px.line(df_filtered, x=x_ax, y=y_ax, title=chart_title)
-                elif g_type == "Scatter": fig = px.scatter(df_filtered, x=x_ax, y=y_ax, title=chart_title)
-                elif g_type == "Pie": fig = px.pie(df_filtered, names=x_ax, values=y_ax, title=chart_title)
-                elif g_type == "Histogram": fig = px.histogram(df_filtered, x=y_ax, title=chart_title)
-                elif g_type == "Box": fig = px.box(df_filtered, x=x_ax, y=y_ax, title=chart_title)
-                elif g_type == "Area": fig = px.area(df_filtered, x=x_ax, y=y_ax, title=chart_title)
-
-            if fig:
-                st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.error(f"Visualization Error: {e}")
-
-        csv = df_filtered.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Filtered Data (CSV)", csv, "graphico_report.csv", "text/csv")
-
-    elif page == "🔍 Raw Insights":
-        st.markdown("<h2 style='color: #00f2fe;'>🧠 Technical Data Insights</h2>", unsafe_allow_html=True)
-        st.subheader("Data Preview")
-        st.dataframe(df, use_container_width=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("📊 Descriptive Statistics")
-            st.write(df.describe())
-        with col2:
-            st.subheader("🛠️ Column Metadata")
-            st.dataframe(pd.DataFrame(df.dtypes, columns=["Type"]).astype(str))
-        st.divider()
-        st.subheader("❌ Missing Values Check")
-        st.write(df.isnull().sum())
-
-    elif page == "DS Hub":
-        st.title("Welcome to DS Mastermind's Hub 🧠💡")
-        df = pd.DataFrame(df)
-        
-        option_2 = st.selectbox(
-            "Encode categorical variables with", 
-            ("Label Encoding (for 2 categories)", "One-Hot Encoding (for more than 2 categories)"),
-            key="encoding_method"
-        )
-
-        if option_2 == "Label Encoding (for 2 categories)":
-            colm = st.selectbox("Select a column to encode", df.columns, key="column_to_encode")
-            if df[colm].dtype != 'object':
-                st.info("No need to encode this column as it is numeric.")
-            else:
-                le = LabelEncoder()
-                name = colm.lower().replace(" ", "_") + "_encoded"
-                df[name] = le.fit_transform(df[colm])
-
-        elif option_2 == "One-Hot Encoding (for more than 2 categories)":
-            colm = st.selectbox("Select a column to encode", df.columns, key="column_to_one_hot_encode")
-            if df[colm].dtype != 'object':
-                st.info("No need to encode this column as it is numeric.")
-            else:
-                df = pd.get_dummies(df, columns=[colm], prefix=colm.lower().replace(" ", "_"))
-
-        st.write(df)
-
-        def fill_missing_values(df):
-            for column in df.columns:
-                if df[column].dtype == 'object':
-                    df[column] = df[column].fillna(df[column].mode()[0])
-                else:
-                    df[column] = df[column].fillna(df[column].mean())
-            return df
-
-        fill_missing_values(df)
-        st.info("✨ No need to worry about missing values, mastermind buddy has taken care of it for you!")
-
-        work_options = st.radio(
-            "What would you like to do?",
-            ("Make Predictions", "Edit DataFrame"),
-            key="work_options"
-        )
-
-        if work_options == "Edit DataFrame":
-            df = st.session_state.get('df', df)
-
-            op = st.selectbox("Select the editing option",
-                              ("Remove Column", "Remove Row", "Replace or Add Value"))
-
-            if op == "Remove Column":
-                col_to_remove = st.selectbox("Select the column to remove", df.columns)
-                if st.button("Remove Column"):
-                    df.drop(columns=[col_to_remove], inplace=True)
-                    st.success(f"Column '{col_to_remove}' has been removed.")
-                    st.session_state['df'] = df
-                    st.rerun()
-
-            elif op == "Remove Row":
-                row_to_remove = st.number_input("Enter the index of the row to remove",
-                                                min_value=0,
-                                                max_value=len(df)-1,
-                                                step=1)
-                if st.button("Remove Row"):
-                    df.drop(index=row_to_remove, inplace=True)
-                    st.success(f"Row with index {row_to_remove} has been removed.")
-                    st.session_state['df'] = df
-                    st.rerun()
-
-            elif op == "Replace or Add Value":
-                col_to_edit = st.selectbox("Select the column to edit", df.columns)
-                row_to_edit = st.number_input("Enter the index of the row to edit",
-                                              min_value=0,
-                                              max_value=len(df)-1,
-                                              step=1)
-                new_value = st.text_input("Enter the new value")
-               
-                if st.button("Update Value"):
-                    try:
-                        df.at[row_to_edit, col_to_edit] = new_value
-                        st.success(f"Value at row {row_to_edit}, column '{col_to_edit}' updated to '{new_value}'.")
-                        st.session_state['df'] = df
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-           
-            st.write("**Updated DataFrame:**")
-            st.dataframe(df)
-
-        else:  # Make Predictions
-            try:
-                st.subheader("New DataFrame for Predictions")
-                st.write(df)
-                X = st.selectbox("Training on column", df.columns, key="training_column")
-                y = st.selectbox("Predicting column", df.columns, key="predicting_column")
-
-                models = st.radio(
-                    "Select a model for predictions:",
-                    ("Model 1", "Model 2"),
-                    key="model_selection"
-                )
-
-                if models == "Model 1":
-                    model = LinearRegression()
-                    model.fit(df[[X]].values, df[y].values)
-                    popu = st.number_input("Enter a value to predict", key="input_value")
-                    predictions = model.predict([[popu]])
-                    st.subheader("Our obedient child is predicting...")
-                    st.subheader(f"Predicted value: {predictions[0][0]:.0f}")
-
-                elif models == "Model 2":
-                    degree = st.slider("Select polynomial degree", 2, 5, 2, key="poly_degree")
-                    model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
-                    model.fit(df[[X]].values, df[y].values)
-                    popu = st.number_input("Enter a value to predict", key="input_value_5")
-                    predictions = model.predict([[popu]])
-                    st.subheader("Smart with foresight, let's see the predictions...")
-                    st.subheader(f"Predicted value: {predictions[0][0]:.0f}")
-
-            except ValueError:
-                st.error("Can't provide predictions on non-numeric data. Please select numeric columns for training and predicting.")
-
-    elif page == "📖 Samples":
-        st.title("Check before Using")
-        st.video("Tutorial.mp4")
-        st.subheader("Taste it Nicely! ")
-        files = [f for f in os.listdir("tutorial_PNGs") if f.endswith(".png")]
-        for i in range(0, len(files), 4):
-            cols = st.columns(4)
-            for j, col in enumerate(cols):
-                if i + j < len(files):
-                    col.image(Image.open(os.path.join("tutorial_PNGs", files[i+j])), use_container_width=True)
-
-else:
-    st.markdown("""
-        <div style='text-align: center; padding: 50px;'>
-          <h1 style='font-size: 3.5em; color: #4facfe;'>💎 Graphico Pro</h1>
-          <p style='font-size: 1.2em; color: #a1a1a1;'>Your Smartest Data Companion</p>
-          <br>
-          <div style='background-color: #1e2130; padding: 20px; border-radius: 15px; border: 1px solid #4facfe;'>
-            <p>👈 <b>Start by uploading your dataset in the sidebar.</b></p>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# Temporary Request
-st.info("Please submit your review with us, we have just updated our review system so that, now I can read your reviews and ratings. Thanks for letting your support with us! Please Ignore if already submited after 31/3/2026")
-
-if st.query_params.get("sitemap") == "true":
-    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://graphico.streamlit.app</loc>
-    <lastmod>2026-03-31</lastmod>
-    <priority>1.0</priority>
-  </url>
-</urlset>"""
-    st.text(sitemap_xml)
+# ---------------- 3. SYSTEM INITIALIZATION ----------------
+try:
+    drive_service = get_google_services()
+    PARENT_FOLDER_ID = st.secrets["general"]["PARENT_FOLDER_ID"]
+except Exception as e:
+    st.error(f"⚠️ Critical Connection Error: {e}")
     st.stop()
+
+# ---------------- 4. AUTH & REGISTRATION ----------------
+if "user_id" not in st.session_state:
+    st.markdown('<div class="header-text">🎬 EDIPREX</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-text">High-End Video Editing for Professionals</div>', unsafe_allow_html=True)
+    
+    tab_log, tab_reg = st.tabs(["🔐 Secure Login", "📝 Register Account"])
+    conn = st.connection("gsheets", type=GSheetsConnection)
+
+    with tab_reg:
+        new_id = st.text_input("Choose Your Unique EDP ID", placeholder="e.g. nilay_01").strip()
+        if st.button("Create My Account"):
+            if new_id:
+                try:
+                    logins = conn.read(spreadsheet="Ediprex_Logins", worksheet="Sheet1", ttl=0)
+                    if new_id in logins["Random_EDP_ID"].astype(str).values:
+                        st.error("This ID is already taken! Try another.")
+                    else:
+                        # Update GSheet
+                        new_row = pd.DataFrame([{"Random_EDP_ID": new_id}])
+                        conn.update(spreadsheet="Ediprex_Logins", worksheet="Sheet1", data=pd.concat([logins, new_row]))
+                        
+                        # Create Drive Folder with Quota bypass flags
+                        drive_service.files().create(
+                            body={
+                                "name": new_id, 
+                                "mimeType": "application/vnd.google-apps.folder", 
+                                "parents": [PARENT_FOLDER_ID]
+                            }, 
+                            supportsAllDrives=True
+                        ).execute()
+                        
+                        st.success("Registration Successful! Please switch to the Login tab.")
+                        st.balloons()
+                except Exception as e:
+                    st.error(f"Registration Error: {e}")
+            else: st.warning("Please enter a valid ID")
+
+    with tab_log:
+        uid = st.text_input("Enter EDP ID", key="login_id").strip()
+        if st.button("Unlock Dashboard"):
+            logins = conn.read(spreadsheet="Ediprex_Logins", worksheet="Sheet1", ttl=0)
+            if uid in logins["Random_EDP_ID"].astype(str).values:
+                st.session_state["user_id"] = uid
+                st.rerun()
+            else: st.error("ID not found. Please register first.")
+
+# ---------------- 5. MAIN DASHBOARD & UPLOAD FIX ----------------
+else:
+    st.sidebar.title(f"👤 {st.session_state['user_id']}")
+    st.sidebar.info("EDIPREX Pro Active")
+    if st.sidebar.button("🚪 Logout"):
+        del st.session_state["user_id"]
+        st.rerun()
+
+    st.header("🚀 Start New Project")
+    
+    with st.container():
+        with st.form("order_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                phone = st.text_input("WhatsApp Number (with country code)")
+                raw_file = st.file_uploader("Upload Your Raw Footage", type=['mp4', 'mov', 'png', 'jpg', 'zip'])
+            with col2:
+                desc = st.text_area("Editing Instructions", placeholder="Describe your vision, cuts, music, and style...")
+            
+            submit = st.form_submit_button("🚀 Submit Order & Upload")
+            
+            if submit:
+                if raw_file and phone and desc:
+                    try:
+                        with st.spinner("Uploading to EDIPREX Cloud (Please wait)..."):
+                            # 1. Find the User's Personal Folder
+                            query = f"name='{st.session_state['user_id']}' and mimeType='application/vnd.google-apps.folder' and '{PARENT_FOLDER_ID}' in parents"
+                            res = drive_service.files().list(q=query, supportsAllDrives=True).execute()
+                            f_id = res['files'][0]['id']
+                            
+                            # 2. THE QUOTA FIX UPLOAD LOGIC
+                            file_metadata = {'name': raw_file.name, 'parents': [f_id]}
+                            media = MediaIoBaseUpload(io.BytesIO(raw_file.read()), mimetype=raw_file.type)
+                            
+                            drive_service.files().create(
+                                body=file_metadata,
+                                media_body=media,
+                                fields='id',
+                                supportsAllDrives=True # Fix for Shared/Permission uploads
+                            ).execute()
+                        
+                        # 3. Log Order Details to GSheets
+                        conn_orders = st.connection("gsheets", type=GSheetsConnection)
+                        orders = conn_orders.read(spreadsheet="Ediprex_Orders", worksheet="Sheet1", ttl=0)
+                        new_ord = pd.DataFrame([{"User_Id": st.session_state["user_id"], "Phone": phone, "ORDER": desc}])
+                        conn_orders.update(spreadsheet="Ediprex_Orders", worksheet="Sheet1", data=pd.concat([orders, new_ord]))
+                        
+                        st.success("✅ Order Placed Successfully! Our editors will begin shortly.")
+                        st.balloons()
+                    except Exception as e:
+                        st.error(f"Upload/Quota Error: {e}")
+                else:
+                    st.warning("Please fill all fields and upload a file to proceed.")
+
+    st.markdown("---")
+    st.caption("© 2026 EDIPREX | Professional Studio Workflow")
