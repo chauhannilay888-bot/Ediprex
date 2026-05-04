@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
 # ---------------- 1. SERVICE ACCOUNT SETUP ----------------
+@st.cache_resource
 def get_google_services():
     s = st.secrets["connections"]["gsheets"]
     creds_dict = {
@@ -21,7 +22,7 @@ def get_google_services():
     creds = Credentials.from_service_account_info(creds_dict)
     return build('drive', 'v3', credentials=creds)
 
-# ---------------- 2. UI & HELPERS ----------------
+# ---------------- 2. UI & DRIVE HELPERS ----------------
 st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
 
 st.markdown("""
@@ -32,7 +33,6 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 def get_country_codes():
-    # Saari countries ke codes nikalne ka robust tareeka
     codes = []
     for region in phonenumbers.SUPPORTED_REGIONS:
         country_code = phonenumbers.country_code_for_region(region)
@@ -40,9 +40,8 @@ def get_country_codes():
     return sorted(list(set(codes)))
 
 def get_unique_filename(drive_service, folder_id, filename):
-    # (1), (2) wala naming logic
     query = f"name contains '{filename}' and '{folder_id}' in parents and trashed = false"
-    results = drive_service.files().list(q=query, fields="files(name)").execute()
+    results = drive_service.files().list(q=query, fields="files(name)", spaces='drive').execute()
     existing_files = [f['name'] for f in results.get('files', [])]
     
     if filename not in existing_files:
@@ -56,11 +55,34 @@ def get_unique_filename(drive_service, folder_id, filename):
             return new_name
         counter += 1
 
+# --- NAYA LOGIC: Folder Creation & Fetching ---
+def get_or_create_user_folder(service, user_id, parent_id):
+    query = f"name='{user_id}' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+    results = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+    items = results.get('files', [])
+    
+    if not items:
+        # Folder exist nahi karta, naya banao
+        file_metadata = {
+            'name': user_id,
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [parent_id]
+        }
+        folder = service.files().create(body=file_metadata, fields='id', supportsAllDrives=True).execute()
+        return folder.get('id')
+    else:
+        return items[0].get('id')
+
+def get_files_from_folder(service, folder_id):
+    query = f"'{folder_id}' in parents and trashed=false"
+    results = service.files().list(q=query, spaces='drive', fields='files(id, name, webViewLink)').execute()
+    return results.get('files', [])
+
 # ---------------- 3. SYSTEM CONFIG ----------------
 try:
     drive_service = get_google_services()
-    # Ye ID wahi hai jo tune manual banayi hai (1cbr28a9N7YcW-r0Lv5i99YJEh1KAYFbr)
-    TEMPLATE_FOLDER_ID = st.secrets["general"]["PARENT_FOLDER_ID"]
+    MAIN_FOLDER_ID = st.secrets["general"]["MAIN_FOLDER_ID"]
+    TEMPLATE_FOLDER_ID = st.secrets["general"]["TEMPLATE_FOLDER_ID"]
 except Exception as e:
     st.error(f"System Error: {e}"); st.stop()
 
@@ -74,37 +96,55 @@ if "user_id" not in st.session_state:
         new_id = st.text_input("Choose Unique EDP ID").strip()
         if st.button("Create Account"):
             if new_id:
-                logins = conn.read(spreadsheet="Ediprex_Logins", worksheet="Sheet1", ttl=0)
+                logins = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/145oVIxTM4SOr299cdMyheSqZfWMbgBTBO1iLkBqX3Ek/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
                 if new_id in logins["Random_EDP_ID"].astype(str).values:
                     st.error("Bhai, ye ID pehle se li hui hai!")
                 else:
                     new_row = pd.DataFrame([{"Random_EDP_ID": new_id}])
-                    conn.update(spreadsheet="Ediprex_Logins", worksheet="Sheet1", data=pd.concat([logins, new_row]))
+                    conn.update(worksheet="Sheet1", data=pd.concat([logins, new_row]))
+                    # Jaise hi naya account banega, background mein Drive folder create ho jayega
+                    with st.spinner("Setting up your workspace..."):
+                        get_or_create_user_folder(drive_service, new_id, MAIN_FOLDER_ID)
                     st.success("Registration Done! Ab Login tab mein jao.")
                     st.balloons()
 
     with tab_log:
         uid = st.text_input("Enter your EDP ID").strip()
         if st.button("Login to Dashboard"):
-            logins = conn.read(spreadsheet="Ediprex_Logins", worksheet="Sheet1", ttl=0)
+            logins = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/145oVIxTM4SOr299cdMyheSqZfWMbgBTBO1iLkBqX3Ek/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
             if uid in logins["Random_EDP_ID"].astype(str).values:
                 st.session_state["user_id"] = uid
                 st.rerun()
             else: st.error("ID nahi mili. Register karlo pehle.")
 
-# ---------------- 5. MAIN DASHBOARD (The Bypass Logic) ----------------
+# ---------------- 5. MAIN DASHBOARD ----------------
 else:
+    # ---- SIDEBAR: MY ORDERS LOGIC ----
     st.sidebar.title(f"👤 {st.session_state['user_id']}")
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 📦 My Orders (Edits)")
+    
+    # User ka personal folder fetch/create karo (security fail-safe agar old user ho)
+    user_folder_id = get_or_create_user_folder(drive_service, st.session_state["user_id"], MAIN_FOLDER_ID)
+    user_files = get_files_from_folder(drive_service, user_folder_id)
+    
+    if user_files:
+        for f in user_files:
+            st.sidebar.markdown(f"🔗 [{f['name']}]({f['webViewLink']})")
+    else:
+        st.sidebar.info("Abhi tak koi final edit upload nahi hua hai.")
+        
+    st.sidebar.markdown("---")
     if st.sidebar.button("Logout"): 
-        del st.session_state["user_id"]
+        st.session_state.clear()
         st.rerun()
 
+    # ---- MAIN AREA: UPLOAD LOGIC ----
     st.header("🚀 New Order & Upload")
     with st.form("order_form", clear_on_submit=True):
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            # Country Code Dropdown
             country_list = get_country_codes()
             default_ix = country_list.index("+91 (IN)") if "+91 (IN)" in country_list else 0
             c_code = st.selectbox("Select Country Code", options=country_list, index=default_ix)
@@ -119,12 +159,13 @@ else:
             if raw_file and phone and desc:
                 try:
                     full_phone = f"{c_code.split(' ')[0]} {phone}"
-                    with st.spinner("Uploading to EDIPREX Main Cloud..."):
+                    with st.spinner("Uploading raw materials to EDIPREX Cloud..."):
+                        
                         # Custom Naming: UserID_Filename
                         original_name = f"{st.session_state['user_id']}_{raw_file.name}"
+                        # Raw files jayengi TEMPLATE_FOLDER_ID mein (admin ke liye)
                         final_name = get_unique_filename(drive_service, TEMPLATE_FOLDER_ID, original_name)
                         
-                        # Direct Upload to your folder (Quota will be yours)
                         media = MediaIoBaseUpload(io.BytesIO(raw_file.read()), mimetype=raw_file.type, resumable=True)
                         drive_service.files().create(
                             body={'name': final_name, 'parents': [TEMPLATE_FOLDER_ID]},
@@ -135,15 +176,15 @@ else:
                     
                     # GSheet Logging
                     conn_ord = st.connection("gsheets", type=GSheetsConnection)
-                    orders = conn_ord.read(spreadsheet="Ediprex_Orders", worksheet="Sheet1", ttl=0)
+                    orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
                     new_ord = pd.DataFrame([{
-                        "User_Id": st.session_state["user_id"], 
+                        "User_ID": st.session_state["user_id"], 
                         "Phone": full_phone, 
-                        "ORDER": f"File: {final_name} | {desc}"
+                        "ORDER_DESCRIPTION": f"File: {final_name} | {desc}"
                     }])
-                    conn_ord.update(spreadsheet="Ediprex_Orders", worksheet="Sheet1", data=pd.concat([orders, new_ord]))
+                    conn_ord.update(worksheet="Sheet1", data=pd.concat([orders, new_ord]))
                     
-                    st.success(f"✅ Makkhan! File saved as: {final_name}")
+                    st.success(f"✅ Order Placed! Raw file saved as: {final_name}")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Panga ho gaya: {e}")
@@ -151,4 +192,4 @@ else:
                 st.warning("Bhai, saari details fill kar, kuch miss ho gaya hai.")
 
 st.markdown("---")
-st.caption("© 2026 EDIPREX | Nilay's Professional Editing Workflow")
+st.caption("© 2026 EDIPREX | Professional Editing Workflow")
