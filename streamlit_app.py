@@ -23,7 +23,7 @@ def get_google_services():
     return build('drive', 'v3', credentials=creds)
 
 # ---------------- 2. UI & DRIVE HELPERS ----------------
-st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
+st.set_page_config(page_title="EDIPREX PRO", page_icon="sZ6eW.jpg", layout="wide")
 
 st.markdown("""
     <style>
