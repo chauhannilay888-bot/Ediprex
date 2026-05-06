@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
-import io
 import phonenumbers
 from streamlit_gsheets import GSheetsConnection
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 
 # ---------------- 1. SERVICE ACCOUNT SETUP ----------------
 @st.cache_resource
@@ -22,7 +20,7 @@ def get_google_services():
     creds = Credentials.from_service_account_info(creds_dict)
     return build('drive', 'v3', credentials=creds)
 
-# ---------------- 2. UI & DRIVE HELPERS ----------------
+# ---------------- 2. UI & HELPERS ----------------
 st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
 
 st.markdown("""
@@ -38,18 +36,6 @@ def get_country_codes():
         country_code = phonenumbers.country_code_for_region(region)
         codes.append(f"+{country_code} ({region})")
     return sorted(list(set(codes)))
-
-def get_unique_filename(drive_service, folder_id, filename):
-    query = f"name = '{filename}' and '{folder_id}' in parents and trashed = false"
-    results = drive_service.files().list(q=query, fields="files(name)", spaces='drive').execute()
-    existing_files = [f['name'] for f in results.get('files', [])]
-    if filename not in existing_files: return filename
-    base_name, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
-    counter = 1
-    while True:
-        new_name = f"{base_name}({counter}).{extension}" if extension else f"{base_name}({counter})"
-        if new_name not in existing_files: return new_name
-        counter += 1
 
 def get_or_create_user_folder(service, user_id, parent_id):
     query = f"name='{user_id}' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
@@ -70,7 +56,6 @@ def get_files_from_folder(service, folder_id):
 try:
     drive_service = get_google_services()
     MAIN_FOLDER_ID = st.secrets["general"]["MAIN_FOLDER_ID"]
-    TEMPLATE_FOLDER_ID = st.secrets["general"]["TEMPLATE_FOLDER_ID"]
 except Exception as e:
     st.error(f"System Error: {e}"); st.stop()
 
@@ -124,7 +109,9 @@ else:
         st.session_state.clear()
         st.rerun()
 
-    st.header("🚀 New Order & Upload")
+    st.header("🚀 New Order Submission")
+    st.info("Files aur details WhatsApp par share kar dena, bas order yahan submit kar do.")
+    
     with st.form("order_form", clear_on_submit=True):
         col1, col2 = st.columns([1, 2])
         with col1:
@@ -133,17 +120,18 @@ else:
             c_code = st.selectbox("Select Country Code", options=country_list, index=default_ix)
             phone = st.text_input("WhatsApp Number")
         with col2:
-            desc = st.text_area("Editing Instructions", height=180)
+            desc = st.text_area("Editing Instructions (Style, Music, etc.)", height=150)
             
-        if st.form_submit_button("Submit & Start Upload"):
+        if st.form_submit_button("Submit Order"):
             if phone and desc:
                 try:
                     full_phone = f"{c_code.split(' ')[0]} {phone}"
-                    
                     conn_ord = st.connection("gsheets", type=GSheetsConnection)
                     orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
+                    new_ord = pd.DataFrame([{"User_ID": st.session_state["user_id"], "Phone": full_phone, "ORDER_DESCRIPTION": desc}])
                     conn_ord.update(worksheet="Sheet1", data=pd.concat([orders, new_ord]))
-                    st.success(f"✅ Order Placed! File saved as: {final_name}")
+                    
+                    st.success("✅ Order Placed! Hum aapse WhatsApp par contact karenge.")
                     st.balloons()
                 except Exception as e:
                     st.error(f"Panga ho gaya: {e}")
