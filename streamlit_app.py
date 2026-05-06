@@ -23,7 +23,7 @@ def get_google_services():
     return build('drive', 'v3', credentials=creds)
 
 # ---------------- 2. UI & DRIVE HELPERS ----------------
-st.set_page_config(page_title="EDIPREX PRO", page_icon="sZ6eW.jpg", layout="wide")
+st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
 
 st.markdown("""
     <style>
@@ -81,7 +81,6 @@ def get_files_from_folder(service, folder_id):
 # ---------------- 3. SYSTEM CONFIG ----------------
 try:
     drive_service = get_google_services()
-    # System Config mein ye hona chahiye:
     MAIN_FOLDER_ID = st.secrets["general"]["MAIN_FOLDER_ID"]
     TEMPLATE_FOLDER_ID = st.secrets["general"]["TEMPLATE_FOLDER_ID"]
 except Exception as e:
