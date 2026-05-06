@@ -81,6 +81,7 @@ def get_files_from_folder(service, folder_id):
 # ---------------- 3. SYSTEM CONFIG ----------------
 try:
     drive_service = get_google_services()
+    # System Config mein ye hona chahiye:
     MAIN_FOLDER_ID = st.secrets["general"]["MAIN_FOLDER_ID"]
     TEMPLATE_FOLDER_ID = st.secrets["general"]["TEMPLATE_FOLDER_ID"]
 except Exception as e:
