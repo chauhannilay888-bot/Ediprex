@@ -123,6 +123,7 @@ else:
             desc = st.text_area("Editing Instructions (Style, Music, etc.)", height=150)
             
         # --- Order Submission logic mein ye update karo ---
+# --- Order Submission logic mein ye update karo ---
 if st.form_submit_button("Submit Order"):
     if phone and desc:
         try:
@@ -146,9 +147,8 @@ if st.form_submit_button("Submit Order"):
             st.success("✅ Order submitted successfully!")
             st.balloons()
         except Exception as e:
-            st.error("Error:", e)
+            st.error(f"Panga ho gaya: {e}")
     else:
-        st.warning("Bhai, saari details fill kar.")
-
+        st.info("PLEASE FILL ALL THE DETAILS")
 st.markdown("---")
 st.caption("© 2026 EDIPREX | Professional Editing Workflow")
