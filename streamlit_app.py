@@ -142,7 +142,6 @@ else:
                     
                     conn_ord = st.connection("gsheets", type=GSheetsConnection)
                     orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
-                    new_ord = pd.DataFrame([{"User_ID": st.session_state["user_id"], "Phone": full_phone, "ORDER_DESCRIPTION": f"File: {final_name} | {desc}"}])
                     conn_ord.update(worksheet="Sheet1", data=pd.concat([orders, new_ord]))
                     st.success(f"✅ Order Placed! File saved as: {final_name}")
                     st.balloons()
