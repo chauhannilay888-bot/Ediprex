@@ -20,7 +20,7 @@ def get_google_services():
     creds = Credentials.from_service_account_info(creds_dict)
     return build('drive', 'v3', credentials=creds)
 
-# ---------------- 2. UI & HELPERS ----------------
+# ---------------- 2. UI & DRIVE HELPERS ----------------
 st.set_page_config(page_title="EDIPREX PRO", page_icon="🎬", layout="wide")
 
 st.markdown("""
@@ -110,7 +110,7 @@ else:
         st.rerun()
 
     st.header("🚀 New Order Submission")
-    st.info("Files aur details WhatsApp par share kar dena, bas order yahan submit kar do.")
+    st.info("Files aur details WhatsApp par share kar dena.")
     
     with st.form("order_form", clear_on_submit=True):
         col1, col2 = st.columns([1, 2])
@@ -122,33 +122,32 @@ else:
         with col2:
             desc = st.text_area("Editing Instructions (Style, Music, etc.)", height=150)
             
-        # --- Order Submission logic mein ye update karo ---
-# --- Order Submission logic mein ye update karo ---
-if st.form_submit_button("Submit Order"):
-    if phone and desc:
-        try:
-            full_phone = f"{c_code.split(' ')[0]} {phone}"
-            conn_ord = st.connection("gsheets", type=GSheetsConnection)
-            
-            # 1. Purana data read karo
-            orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1")
-            
-            # 2. Naya row banao (Dictionary format mein taaki columns match karein)
-            new_row = {
-                "User_ID": st.session_state["user_id"], 
-                "Phone": full_phone, 
-                "ORDER_DESCRIPTION": desc
-            }
-            
-            # 3. Sirf naye row ko append karo, headers overwrite nahi honge
-            updated_df = pd.concat([orders, pd.DataFrame([new_row])], ignore_index=True)
-            conn_ord.update(worksheet="Sheet1", data=updated_df)
-            
-            st.success("✅ Order submitted successfully!")
-            st.balloons()
-        except Exception as e:
-            st.error(f"Panga ho gaya: {e}")
-    else:
-        st.info("PLEASE FILL ALL THE DETAILS")
+        if st.form_submit_button("Submit Order"):
+            if phone and desc:
+                try:
+                    full_phone = f"{c_code.split(' ')[0]} {phone}"
+                    conn_ord = st.connection("gsheets", type=GSheetsConnection)
+                    
+                    # Read existing data
+                    orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1")
+                    
+                    # Create new row without disrupting headers
+                    new_ord = pd.DataFrame([{
+                        "User_ID": st.session_state["user_id"], 
+                        "Phone": full_phone, 
+                        "ORDER_DESCRIPTION": desc
+                    }])
+                    
+                    # Append data
+                    updated_df = pd.concat([orders, new_ord], ignore_index=True)
+                    conn_ord.update(worksheet="Sheet1", data=updated_df)
+                    
+                    st.success("✅ Order Placed! Hum aapse WhatsApp par contact karenge.")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"Panga ho gaya: {e}")
+            else:
+                st.warning("Bhai, saari details fill kar.")
+
 st.markdown("---")
 st.caption("© 2026 EDIPREX | Professional Editing Workflow")
