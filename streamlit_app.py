@@ -132,21 +132,13 @@ else:
             default_ix = country_list.index("+91 (IN)") if "+91 (IN)" in country_list else 0
             c_code = st.selectbox("Select Country Code", options=country_list, index=default_ix)
             phone = st.text_input("WhatsApp Number")
-            raw_file = st.file_uploader("Choose Video/Photo", type=['mp4', 'mov', 'zip', 'jpg', 'png'])
         with col2:
             desc = st.text_area("Editing Instructions", height=180)
             
         if st.form_submit_button("Submit & Start Upload"):
-            if raw_file and phone and desc:
+            if phone and desc:
                 try:
                     full_phone = f"{c_code.split(' ')[0]} {phone}"
-                    with st.spinner("Uploading to EDIPREX Cloud..."):
-                        final_name = get_unique_filename(drive_service, TEMPLATE_FOLDER_ID, f"{st.session_state['user_id']}_{raw_file.name}")
-                        media = MediaIoBaseUpload(io.BytesIO(raw_file.read()), mimetype=raw_file.type, resumable=True)
-                        drive_service.files().create(
-                            body={'name': final_name, 'parents': [TEMPLATE_FOLDER_ID]},
-                            media_body=media, fields='id', supportsAllDrives=True
-                        ).execute()
                     
                     conn_ord = st.connection("gsheets", type=GSheetsConnection)
                     orders = conn_ord.read(spreadsheet="https://docs.google.com/spreadsheets/d/1H7XYe3MFXrh_3VmPUAKcHDZeNYDx07tZH8x9K5VHkwU/edit?gid=0#gid=0", worksheet="Sheet1", ttl=0)
