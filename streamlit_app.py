@@ -146,7 +146,7 @@ if st.form_submit_button("Submit Order"):
             st.success("✅ Order submitted successfully!")
             st.balloons()
         except Exception as e:
-            st.error("Error":, e)
+            st.error("Error:", e)
     else:
         st.warning("Bhai, saari details fill kar.")
 
